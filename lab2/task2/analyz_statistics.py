@@ -68,11 +68,12 @@ def rating_calculation(csv_file, delimiter=DELIMITER_SEMICOLON):
             #  Добавляем в значение в текущий
             if z_class is not None:
                 maneuver_sum += z_class
-                maneuver_count += 1
+
+            maneuver_count += 1
 
         return sum(maneuver_sensitives_list) / len(maneuver_sensitives_list)
 
 
-print(rating_calculation(PATH_TO_CSV + FILE_NAME_DRIVER_1))
-print(rating_calculation(PATH_TO_CSV + FILE_NAME_DRIVER_2))
+print(rating_calculation(FILE_NAME_DRIVER_1))
+print(rating_calculation(FILE_NAME_DRIVER_2))
 
