@@ -1,8 +1,5 @@
-import string
 from datetime import datetime
 import random
-from time import sleep
-
 from smart_m3.m3_kp_api import *
 
 
@@ -33,34 +30,43 @@ class Server:
 
     def handle(self, added, removed):
 
-        print('Agent_X reporting: {}'.format(datetime.now()))
-        # print('    added', added)
-        # print('    removed', removed)
+        print('Server reporting: {}'.format(datetime.now()))
+        print('    added', added)
+        print('    removed', removed)
 
         for data in added:
-            print("Input data: " + data)
+            print("Input data: " + str(data))
+
+            # Клиент хочет начать игру
             if str(data[1]) == 'game':
                 print(str(data[1]))
                 self.kp.load_query_rdf(Triple(URI(data[0]), URI("game"), Literal("1")))
-                if len(self.kp.result_rdf_query) == 0:
+
+                # Проверяем, есть ли начатая игра, если есть - отправляем ошибку
+                if len(self.kp.result_rdf_query) == 1:
                     self.subscriber_list.update({data[0]: random.randint(0, 100)})
                     self.kp.load_rdf_insert(Triple(URI(data[0]), URI("response"), Literal("1")))
                 else:
                     self.kp.load_rdf_insert(Triple(URI(data[0]), URI("response"), Literal("error")))
+
+            # Клиент прислал свою догадку
             elif str(data[1]) == 'answer':
                 print(str(data[1]))
-                target_number = self.subscriber_list[data[0]]
+                target_number = self.subscriber_list.get(data[0])
                 try:
-                    if not target_number:
+                    # Игра не была инициализирована - отправяем ошибку
+                    if target_number is None:
                         self.kp.load_rdf_insert(Triple(URI(data[0]), URI("response"), Literal("error")))
-                    elif int(data[2]) == target_number:
+                        # Клиент угадал, отправляем ответ, удаляем информацию об игре
+                    elif int(str(data[2])) == target_number:
                         self.kp.load_rdf_insert(Triple(
                             URI(data[0]), URI("response"), Literal("{}:1".format(target_number))))
                         del self.subscriber_list[data[0]]
                         self.kp.load_rdf_remove(Triple(URI(data[0]), URI("game"), Literal("1")))
                     else:
+                        # Клиент не угадал
                         self.kp.load_rdf_insert(Triple(
-                            URI(data[0]), URI("response"), Literal("{}:2".format(target_number))))
+                            URI(data[0]), URI("response"), Literal("{}:2".format(str(data[2])))))
                 except:
                     self.kp.load_rdf_insert(Triple(URI(data[0]), URI("response"), Literal("error")))
 

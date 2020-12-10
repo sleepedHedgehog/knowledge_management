@@ -1,15 +1,8 @@
-import os
 import string
-from datetime import datetime, time
+from datetime import datetime
 import random
-from time import sleep
 
 from smart_m3.m3_kp_api import *
-
-
-# AgentUniqId / game / {1 - новая, 0 - завершить}
-# AgentUniqId / response / {0 - no, 1 - yes, "error"} - Ответ клиента
-# AgentUniqId / answer / {"number": 0 - no, 1 - yes} - Ответ сервера
 
 # Клиент отправляет серверу запрос вида Triple(URI(AgentId), URI("game"), Literal(1))
 # Сервер проверяет, есть ли уже созданная игра
@@ -30,60 +23,59 @@ class Client:
         print("Инициализация клиента")
         self.kp = kp if kp else m3_kp_api()
         self.agent_name = None
+        self.start = False
+        self.current_number = None
 
     def handle(self, added, removed):
-        print('Agent_X reporting: {}'.format(datetime.now()))
+        print('Client reporting: {}'.format(datetime.now()))
         print('    added', added)
         print('    removed', removed)
 
-    def start_game(self, count=3, sleep_time=1):
+        for data in added:
+            print("Input data: " + str(data))
+
+            if str(data[0]) == self.agent_name and str(data[1]) == "response" and self.start:
+                # Если сервер вернул ошибку
+                if str(data[2]) == Literal("error"):
+                    print("Произошла ошибка")
+                    self.start_game()
+
+                # Если сервер подтвердил начало игры
+                elif str(data[2]) == "1":
+                    self.guesser()
+
+                # Если сервер отреагировал на запрос клиента
+                elif str(data[2]) == "{number}:1".format(number=self.current_number):
+                    raise Exception("Вы угадали. Это было число: " + self.current_number)
+
+                elif str(data[2]) == "{number}:2".format(number=self.current_number):
+                    print("Число: " + self.current_number + " неправильное")
+                    self.guesser()
+
+    def start_game(self):
         """Метод для начала игры"""
+        self.agent_name = ''.join([random.choice(string.ascii_letters) for _ in range(10)])
+        self.start = True
         self.kp.load_rdf_insert(Triple(URI(self.agent_name), URI("game"), Literal(1)))
 
-        requests = 0
-        while requests <= count:
-            self.kp.load_query_rdf(Triple(URI(self.agent_name), URI("response"), None))
-            if self.kp.result_rdf_query:
-                literal = str(self.kp.result_rdf_query[-1])
-                if literal == "1":
-                    return True
-                elif literal == "error":
-                    return False
-
-            requests += 1
-            sleep(sleep_time)
-
-        return False
-
-    def guesser(self, sleep_time=1, count=3):
+    def guesser(self):
         """Метод для угадывания чисел в игре"""
 
-        print("Введите число")
-        number = input()
+        print("Введите число или quit")
+        self.current_number = input()
         try:
-            if number == "quit" or number == "QUIT":
+            if self.current_number == "quit" or self.current_number == "QUIT":
                 print("Завершение работы")
-                return True
+                raise Exception("Приложение завершено пользователем")
 
-            if 0 > int(number) > 100:
+            if (0 > int(self.current_number)) or (int(self.current_number) > 100):
                 raise EOFError
+
+            self.kp.load_rdf_insert(Triple(URI(self.agent_name), URI("answer"), Literal(self.current_number)))
+
         except (TypeError, EOFError):
             print("Неверно задано число")
-
-        self.kp.load_rdf_insert(Triple(URI(self.agent_name), URI("answer"), Literal(number)))
-
-        requests = 0
-        while requests <= count:
-            sleep(sleep_time)
-            self.kp.load_query_rdf(Triple(URI(self.agent_name), URI("response"), None))
-            list_of_result = [res.split()[2] for res in self.kp.result_rdf_query]
-
-            for result in list_of_result:
-                if int(result.split(":")[0]) == number:
-                    print("Вы угадали. Это было число: " + number)
-                    return True
-
-            requests += 1
+            self.guesser()
 
         return False
 
@@ -94,20 +86,4 @@ subscription_triple = Triple(None, None, None)
 handler = Client(kp)
 
 handler_subscription = kp.load_subscribe_RDF(subscription_triple, handler)
-
-flag_started_game = False
-while not flag_started_game:
-    handler.agent_name = ''.join([random.choice(string.ascii_letters) for _ in range(10)])
-    flag_started_game = handler.start_game()
-    time.sleep(1)
-
-flag_guesser = False
-while not flag_guesser:
-    flag_guesser = handler.guesser()
-
-kp.load_unsubscribe(handler_subscription)
-
-kp.clean_sib()
-kp.leave()
-
-raise os._exit(0)
+handler.start_game()
