@@ -1,0 +1,13 @@
+[out:json];
+( area[name="Санкт-Петербург"]; )->.searchArea;
+
+(
+  node["tourism"="museum"](area.searchArea);
+  node["historic"="memorial"](area.searchArea);
+  node["amenity"="theatre"](area.searchArea);
+  node["tourism"="viewpoint"](area.searchArea);
+);
+
+
+(._;>;);
+out body;
