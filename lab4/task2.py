@@ -28,9 +28,8 @@ with open("task1.json", "r", encoding="utf8") as read_file:
             # Если в данных уже есть нужный тег
             if "wikipedia" in res["tags"]:
                 search_page = wikipedia.page(res["tags"]["wikipedia"][3:])
-
             else:
-                # Отлов ошибок, если у
+                # Отлов ошибок, если в запросе нет имени
                 try:
                     # Поиск по координатам
                     page_names = wikipedia.geosearch(latitude=res["lat"], longitude=res["lon"])
